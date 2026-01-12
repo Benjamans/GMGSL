@@ -46,59 +46,84 @@ obj_GMGSL.load_sheet("YOUR_SHEET_ID", "", function(data) {
 
 ## 📦 Installation
 
-### Step 1: Add the Object
+### Step 1: Import the Package
 
-1. Create a new **Object** in GameMaker called `obj_GMGSL`
-2. Add a **Create Event**
-3. Copy the entire contents of `obj_GMGSL_CREATE_EVENT_COMPLETE.gml` into the Create Event
-4. Add an **Async - HTTP Event**
-5. Add this code to the Async HTTP Event:
+1. Download the `GMGSL.yymps` file from the [Releases](../../releases) page
+2. In GameMaker, go to **Tools → Import Local Package**
+3. Select the downloaded `GMGSL.yymps` file
+4. In the import dialog, select **obj_GMGSL** (or click **Add All**)
+5. Click **Import**
 
-```gml
-var _id = async_load[? "id"];
-var _status = async_load[? "status"];
-var _result = async_load[? "result"];
+That's it! The object is now in your Asset Browser, ready to use.
 
-if (!variable_struct_exists(requests, string(_id))) {
-    exit;
-}
-
-var _request = requests[$ string(_id)];
-variable_struct_remove(requests, string(_id));
-
-if (_status == 0) {
-    show_debug_message("Google Sheets: Successfully loaded data");
-    var _data = _gmgsl_parse_csv_to_objects(_result);
-    show_debug_message("Google Sheets: Parsed " + string(array_length(_data)) + " rows");
-    
-    if (_request.callback != undefined) {
-        _request.callback(_data);
-    }
-} else {
-    show_debug_message("Google Sheets: Request failed with status " + string(_status));
-    
-    if (_request.callback != undefined) {
-        _request.callback(undefined);
-    }
-}
-```
+**✨ No coding required!** The object comes pre-configured with all the parsing logic, debug functions, and utilities built-in.
 
 ### Step 2: Add to Your Room
 
-Place one instance of `obj_GMGSL` in your room (it persists automatically).
+1. Find **obj_GMGSL** in your Asset Browser (under Objects)
+2. **Drag and drop** it into any room in your game
+3. The object persists automatically, so you only need one instance
 
 ### Step 3: Publish Your Google Sheet
 
 1. Open your Google Sheet
 2. Go to **File → Share → Publish to web**
 3. Choose **Entire Document** or specific sheet
-4. Select **Comma-separated values (.csv)**
+4. **IMPORTANT:** Select **"Web page"** from the format dropdown (NOT "Comma-separated values")
 5. Click **Publish**
 6. Copy the published URL or extract the Sheet ID
+
+**Why Web page and not CSV?**  
+GameMaker's HTTP functions can access the web page format and automatically convert it to CSV internally. Direct CSV publishing is not accessible via `http_get()`.
 
 **Sheet ID Format:**
 - Full URL: `https://docs.google.com/spreadsheets/d/e/2PACX-1vRo...E2AIN/pub?output=csv`
 - Sheet ID: `2PACX-1vRo...E2AIN` (the part between `/d/e/` and `/pub`)
+
+### Step 4: Start Loading Data!
+
+You're ready to go! Just call the load function from any object's event:
+
+```gml
+// Example: Load on game start (in a controller's Create Event)
+obj_GMGSL.load_sheet("YOUR_SHEET_ID", "", function(data) {
+    global.items = data;
+    show_debug_message("Loaded " + string(array_length(data)) + " items!");
+});
+```
+
+**That's it!** No setup code needed - everything is built into the object.
+
+## 🚀 Quick Start Example
+
+Here's a complete example to get you started immediately:
+
+**1. Create this simple Google Sheet:**
+
+| name   | price | description        |
+|--------|-------|--------------------|
+| Sword  | 100   | A sharp blade      |
+| Shield | 50    | Protects from harm |
+| Potion | 25    | Restores health    |
+
+**2. Publish it as CSV (File → Share → Publish to web → CSV)**
+
+**3. In any GameMaker object, add this to a Create Event or Key Press:**
+
+```gml
+obj_GMGSL.load_sheet("YOUR_SHEET_ID", "", function(data) {
+    // Debug: See what you loaded
+    _gmgsl_debug_sheet_data_compact(data);
+    
+    // Use the data
+    for (var i = 0; i < array_length(data); i++) {
+        var item = data[i];
+        show_debug_message(item.name + " costs " + string(item.price) + " gold");
+    }
+});
+```
+
+**Done!** You're now loading data from Google Sheets into your game.
 
 ## 🎯 Usage
 
@@ -163,6 +188,8 @@ obj_GMGSL.load_sheet("YOUR_SHEET_ID", "", function(data) {
 ### Executable Functions 🔥
 
 One of the most powerful features - execute functions directly from your spreadsheet!
+
+**Note:** Functions support up to **8 parameters**. If you need more, pass a struct or array as a parameter.
 
 **Google Sheet:**
 
@@ -561,21 +588,36 @@ obj_GMGSL.load_sheet("YOUR_SHEET_ID", "", function(data) {
 
 **Problem:** `WARNING: Function 'my_function' not found!`
 
-**Solution:** Create your function as a **Script asset**, not an inline function.
+**Solution:** The function must be accessible via `asset_get_index()`. The easiest way is to create it as a **Script asset**.
 
+**Option 1: Script Asset (Recommended)**
 ```gml
-// ❌ WRONG - Inline function
-function my_function() { }
-
-// ✅ CORRECT - Create as Script asset named "my_function"
+// Create a Script asset named "my_function"
+function my_function(_param) {
+    show_debug_message("Called with: " + string(_param));
+}
 ```
+
+**Option 2: Global Function**
+```gml
+// Define it globally before loading the sheet
+global.my_function = function(_param) {
+    show_debug_message("Called with: " + string(_param));
+}
+```
+
+**Note:** Inline functions defined in events won't work unless stored globally or as Script assets.
+
+**Parameter Limit:** Functions support up to **8 parameters**. If you need more, consider passing a struct or array as a single parameter.
 
 ### Data Not Loading
 
 1. **Check sheet is published:** File → Share → Publish to web
-2. **Verify CSV format:** Must publish as CSV, not as web page
-3. **Check console:** Look for HTTP errors
-4. **Test Sheet ID:** Make sure you copied the correct ID
+2. **IMPORTANT - Verify format:** Must publish as **"Web page"**, NOT as "CSV"
+   - In the publish dialog, select **"Web page"** from the dropdown
+   - GameMaker cannot access sheets published as CSV format
+3. **Check console:** Look for HTTP errors or "Request failed" messages
+4. **Test Sheet ID:** Make sure you copied the correct ID from the published URL
 
 ### Type Detection Issues
 
@@ -618,4 +660,4 @@ If you encounter issues:
 
 ---
 
-Made with ❤️ for the GameMaker community
+Made with ❤️ for the GameMaker community in Morocco 🇲🇦 by a French 🇫🇷 developer
